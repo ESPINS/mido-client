@@ -1,7 +1,7 @@
 version: "1"
 name: mido-client-pipeline
 description: >
-  mido-client 팀의 Spring Boot 기반 프로젝트용 통합 개발 파이프라인.
+  mido-client (Spring Boot YAML-driven RestClient 라이브러리)용 통합 개발 파이프라인.
   dev_agent → test_agent → quality_agent → security_agent 순서로 실행됨.
 
 stages:
@@ -9,8 +9,8 @@ stages:
     description: "기능 개발 및 리팩터링"
     skill: dev_agent
     tasks:
-      - "요청된 기능을 Spring-First 기준으로 개발"
-      - "리팩터링 및 컨벤션 점검"
+      - "요청된 기능을 Spring-First 기준으로 개발 (RestClient / Auto-Configuration 우선 활용)"
+      - "리팩터링 및 컨벤션 점검 (Properties · Factory · Interceptor · ChannelContext 구조 유지)"
       - "CLAUDE.md 규칙에 따라 구현 계획 제시 후 코드 작성"
     on_success:
       - trigger: testing
@@ -22,9 +22,10 @@ stages:
     skill: test_agent
     tasks:
       - "JUnit 기반 단위 테스트 작성"
-      - "Mockito 또는 Testcontainers 활용 검증"
-      - "커버리지 80% 이상 목표"
-      - "빌드 실행 및 테스트 통과 확인"
+      - "ApplicationContextRunner 기반 Auto-Configuration 검증"
+      - "MockRestServiceServer / WireMock 등으로 HTTP 통신 검증"
+      - "커버리지 80% 이상 목표 (Auto-Configuration · Factory · Interceptor 핵심 경로)"
+      - "빌드 실행 및 테스트 통과 확인 (./gradlew test)"
     on_success:
       - trigger: quality
     on_failure:
@@ -36,7 +37,7 @@ stages:
     tasks:
       - "SonarLint, IntelliJ 경고, 코드 스멜 점검"
       - "리팩터링 권장사항 요약 및 제안"
-      - "팀 컨벤션 불일치 코드 식별"
+      - "mido-client 컨벤션 불일치 코드 식별 (Lombok 순서 · @ConfigurationProperties · @ConditionalOn* 사용)"
     on_success:
       - trigger: security
     on_failure:
@@ -46,12 +47,13 @@ stages:
     description: "보안 점검 및 취약성 검증"
     skill: security_agent
     tasks:
-      - "Spring Security 설정 검증"
-      - "입력값 검증(XSS, SQL Injection 등) 검사"
-      - "취약점 발견 시 개선 가이드 제시"
+      - "인증 헤더(Bearer / Basic / API Key) 및 토큰의 로그 노출 여부 검사"
+      - "Interceptor / Logging 경로에서 자격증명 누수 가능성 검사"
+      - "YAML 기본값 · 예제 코드에 실제 토큰/시크릿 하드코딩 여부 검사"
+      - "사용자 입력(YAML properties) 검증 (@Valid · URL 형식 등) 확인"
     on_success:
       - message: "security_agent success."
-    on_fail/ure:
+    on_failure:
       - message: "security_agent failure."
 
 rules:
@@ -64,14 +66,14 @@ rules:
   notifications:
     on_start: "mido-client pipeline start."
     on_complete: "mido-client pipeline success."
-    on_failure: "tay-hub pipeline failure."
+    on_failure: "mido-client pipeline failure."
 
 # ===================================
 # Metadata
 # ===================================
 metadata:
   author: "Hyunjun"
-  team: "mido-client Backend"
+  team: "mido-client"
   created: "2025-11-04"
-  updated: "2025-11-04"
+  updated: "2026-05-15"
   version_tag: "v1.0.0"

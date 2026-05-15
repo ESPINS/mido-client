@@ -1,8 +1,9 @@
 # Claude Session Rules
 
 ## Session Initialization
-**MANDATORY**: 세션 시작 즉시 `.claude/skills/claude_init.skill.yaml` 파일을 Read 도구로 읽어야 함.
-이 파일의 instructions에 따라 모든 설정이 자동으로 로드됨.
+
+Session configuration is automatically loaded via the `SessionStart` hook (`session_init.sh`).
+If configuration is not loaded, manually invoke `/claude-init` to load all pipeline and skill settings.
 
 ## Critical Rules to Follow
 
@@ -64,7 +65,7 @@
 - **"Can errors be traced without domain knowledge?"** criteria
 - Prioritize debugging and problem-solving ease in production
 - Provide explicit paths when tracing code flow
-- Separate response patterns by external vendors (Alpensia, Sono, Hanwha, etc.)
+- Separate handling/response patterns by user-defined channel (per-channel isolation in interceptors, factories, and logging) — never let one channel's state bleed into another
 
 ### 9. AOP Usage Guidelines
 
@@ -78,9 +79,10 @@
 - **Before creating new files**: Always check existing similar files for patterns
 - **Check conventions**: Naming, annotations, structure, formatting style
 - **Example cases**:
-    - Repository creation: Check existing Repository interfaces for @Mapper usage
-    - Mapper XML: Check for comment patterns like `<!--suppress SqlNoDataSourceInspection -->`
-    - Entity classes: Check Lombok annotation patterns and field access levels
+    - Auto-Configuration: Check `MidoClientAutoConfiguration` for `@ConditionalOn*` and bean wiring patterns
+    - Properties classes: Check `MidoClientProperties` for nested static class layout and validation annotations
+    - Interceptor / Factory: Check `MidoLoggingInterceptor` / `MidoClientFactory` for per-channel isolation patterns
+    - Constants/enums: Check `EndpointType`, `LogLevel`, `TokenType` for `@UtilityClass` / enum conventions
 - **Consistency is key**: Match existing codebase style rather than imposing new patterns
 - **When in doubt**: Ask "How are other similar files structured?"
 
@@ -96,15 +98,15 @@
 
 ### 12. Pipeline Execution Rule (MANDATORY)
 
-- **트리거 감지 시 반드시 pipeline.yaml의 4단계를 순서대로 실행할 것**
-- 트리거 키워드: "개발해줘", "구현해줘", "작업 진행해", "기능 추가해줘", "리팩터링 해줘" 등
-- **실행 순서** (절대 생략 불가):
-  1. `[development]` dev_agent.skill.yaml 규칙 적용 → 코드 작성/수정
-  2. `[testing]`     test_agent.skill.yaml 규칙 적용 → 테스트 작성 및 실행
-  3. `[quality]`     quality_agent.skill.yaml 규칙 적용 → 코드 품질 검증
-  4. `[security]`    security_agent.skill.yaml 규칙 적용 → 보안 점검
-- **단계 간 규칙**:
-  - 각 단계 완료 후 반드시 결과를 보고하고 사용자 승인을 받은 후 다음 단계 진행
-  - 단계 실패 시 즉시 중단하고 원인 보고 (stop_on_failure: true)
-  - Java 파일 수정 시 compile_check.sh 훅이 자동으로 컴파일 검증 수행
-- **UserPromptSubmit 훅**: pipeline_trigger.sh가 트리거를 감지하면 이 규칙을 상기시켜 줌
+- **When trigger detected, execute all 4 stages of pipeline.yaml in order**
+- Trigger keywords: "개발해줘", "구현해줘", "작업 진행해", "기능 추가해줘", "리팩터링 해줘", etc.
+- **Execution order** (cannot be skipped):
+  1. `[development]` Apply dev_agent.skill.yaml rules → write/modify code
+  2. `[testing]`     Apply test_agent.skill.yaml rules → write and run tests
+  3. `[quality]`     Apply quality_agent.skill.yaml rules → verify code quality
+  4. `[security]`    Apply security_agent.skill.yaml rules → security review
+- **Inter-stage rules**:
+  - After each stage, report results and get user approval before proceeding to next stage
+  - On stage failure, stop immediately and report the cause (stop_on_failure: true)
+  - On Java file edit, compile_check.sh hook automatically verifies compilation
+- **UserPromptSubmit hook**: pipeline_trigger.sh reminds this rule when a trigger is detected
